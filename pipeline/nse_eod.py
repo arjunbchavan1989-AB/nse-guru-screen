@@ -92,10 +92,12 @@ def overlay(frame,symbol,session,official):
     """Append verified missing sessions, never jump an unverified history gap."""
     if frame is None or frame.empty:return frame
     out=frame.copy()
-    earliest=min(official)
-    if out.index[-1]<earliest:
+    expected=getattr(official,"expected_sessions",None)
+    if expected is None:
+        if out.index[-1]<min(official):return out
+        expected=list(official)
+    elif out.index[-1]<min(expected):
         return out
-    expected=getattr(official,"expected_sessions",list(official))
     if any(out.index[-1]<day<=session and day not in official for day in expected):
         # Let the history backfill repair this gap rather than fabricate continuity.
         return out

@@ -34,7 +34,7 @@ India versus original EP thresholds, and non-overlapping HTF pole/flag geometry.
 
 ## Executed checks
 
-- 19 Python tests passed, including positive/negative CAN SLIM fixtures, stale statements, defensive market context and provider failure.
+- 26 Python tests passed, including positive/negative CAN SLIM fixtures, stale statements, defensive market context, provider failure, dated NSE EOD parsing, UDiFF mapping and no skipped known sessions.
 - Four TradingView symbol-normalisation tests passed.
 - TypeScript type-check passed.
 - npm production dependency audit: no reported vulnerabilities.

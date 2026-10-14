@@ -21,7 +21,7 @@ Official NSE EQ-series equities, using strict greater-than comparisons:
 - Mean of daily `close × volume` over 20 completed sessions >₹3 crore.
 - ADR20 >3%, defined here as the mean of `100 × (high − low) / previous close`.
 
-ADR deliberately measures the daily high-low range, not gap-inclusive true range. This can differ from older dashboards that used true range under the same label. Stocks need at least 100 completed bars to enter this technical dashboard; individual scans may need 200 or 252. Insufficient lookbacks remain unknown.
+ADR deliberately measures the daily high-low range, not gap-inclusive true range. This can differ from older dashboards that used true range under the same label. The universe needs 21 completed bars to form the 20-session range and prior-volume baselines. Short-history listings remain eligible for daily-move and volume scans; only the individual long-history scans enforce their 100/200/252-bar requirements. Insufficient lookbacks remain unknown.
 
 ## Scan methodology and sources
 
@@ -68,7 +68,7 @@ Prices combine vendor historical backfill with official NSE closing bars. Corpor
 - Price histories must cover ≥95% of official listings.
 - At least 95% of retrieved price histories must match the verified exchange session.
 - Shares must cover ≥95% of liquidity-qualified candidates.
-- Technical history must cover ≥90% of the market-cap-qualified universe.
+- At least 21 bars must cover ≥95% of the market-cap-qualified universe.
 - Fundamentals are fetched for stocks that have not already failed the CAN SLIM N/S/L technical gates; complete records refresh weekly and incomplete records daily.
 - Quarterly inputs expire after 180 days from period end; annual inputs after 550 days.
 - EP catalysts remain **Unverified**. The app does not invent or infer company news.

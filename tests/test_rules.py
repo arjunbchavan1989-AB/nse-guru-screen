@@ -118,6 +118,16 @@ class RulesTest(unittest.TestCase):
         self.assertIn("q_ep",r["matches"])
         self.assertNotIn("q_ep",r["matches_original"])
 
+    def test_short_history_stock_can_still_pass_daily_move_scan(self):
+        d=frame(25)
+        p=float(d.close.iloc[-2])
+        d.loc[d.index[-1],["open","high","low","close","volume"]]=[p,p*1.07,p*.99,p*1.05,500000]
+        r,_,_=technical(d,parent());add_ranks([r]);assess(r,{},True)
+        self.assertIn("sb4",r["matches"])
+        self.assertNotIn("q_breakout",r["matches"])
+        self.assertNotIn("kell",r["matches"])
+        self.assertEqual(r["history_sessions"],25)
+
 
 if __name__=="__main__":
     unittest.main()

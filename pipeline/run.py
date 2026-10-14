@@ -51,15 +51,15 @@ def scan(bootstrap_path=None):
     metadata={r["symbol"]:r for r in source["rows"]}
     names=source.get("company_names",{})
     for symbol,frame in frames.items():
-        if symbol not in metadata or len(frame)<100:
+        if symbol not in metadata or len(frame)<21:
             continue
         parent={**metadata[symbol],"name":names.get(symbol,metadata[symbol].get("name",symbol))}
         row,bars,events=technical(frame,parent)
         row["rs_excess_pct"]=safe(excess(frame.rename(columns=str.lower),benchmark))
         rows.append(row)
         charts[symbol]=dict(symbol=symbol,date=str(session.date()),bars=bars[-300:],events=events)
-    if not rows or len(rows)/len(metadata)<.9:
-        raise RuntimeError("Under 90% of universe has sufficient technical history; refusing output")
+    if not rows or len(rows)/len(metadata)<.95:
+        raise RuntimeError("Under 95% of universe has 21 completed bars; refusing output")
     add_ranks(rows)
     # Fetch slow fundamentals only for stocks not already ruled out by N/S/L.
     can_candidates=[r["symbol"] for r in rows if r["_high252"] is not None and
@@ -70,9 +70,12 @@ def scan(bootstrap_path=None):
         assess(row,funds.get(row["symbol"]),market_up)
     now=datetime.now(ZoneInfo("Asia/Kolkata"))
     counts={s["id"]:sum(s["id"] in r["matches"] for r in rows) for s in SCAN_DEFINITIONS}
+    long_history_count=sum(len(frames[r["symbol"]])>=100 for r in rows)
     payload=dict(schema_version=1,generated_at=now.isoformat(),last_trading_date=str(session.date()),
                  benchmark=NAME,qualified_count=len(rows),market_data={**source["market_data"],
                  "technical_history_exclusions":len(metadata)-len(rows),
+                 "long_history_count":long_history_count,
+                 "short_history_count":len(rows)-long_history_count,
                  "fundamental_candidates":len(can_candidates),
                  "fundamentals_available":sum(f.get("status")=="Available" for f in funds.values())},
                  scans=SCAN_DEFINITIONS,rows=sorted(rows,key=lambda r:(-len(r["matches"]),-r["change_pct"],r["symbol"])),
@@ -82,6 +85,7 @@ def scan(bootstrap_path=None):
                  notes=["Latest completed closing bars come from official, date-validated NSE EOD files; historical backfill is vendor data.",
                         "Price/volume candidates are not confirmed EPs; catalyst status remains unverified.",
                         "Universe ADR20 = mean((high − low) / previous close ×100), not true range.",
+                        "Short-history listings stay in the universe. Each scan independently enforces its required lookbacks.",
                         "RS percentiles are cross-sectional within this eligible universe; RS excess uses Nifty MidSmallcap 400.",
                         "RVOL denominator excludes today's volume. Universe liquidity averages include the completed EOD bar.",
                         "Pattern thresholds are disclosed approximations, not proprietary guru code.",

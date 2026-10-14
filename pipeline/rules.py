@@ -193,6 +193,9 @@ def technical(frame, parent):
                _dry=safe(volume_dry),
                _support=bool(a>0 and min(abs(last.close-e10.iloc[-1]), abs(last.close-e20.iloc[-1]))<=a),
                _nearhigh=bool(last.close>=high63*.9), _htf=htf_geometry(d))
+    row["history_sessions"]=len(d)
+    if len(d)<200:
+        row["warnings"].append(f"Only {len(d)} completed sessions: long-lookback scans remain unavailable; daily move and volume scans can still qualify.")
     for name, n in (("day",1),("week",5),("month",21),("3m",63),("6m",126)):
         row[f"return_{name}"] = safe((last.close/d.close.iloc[-n-1]-1)*100) if len(d)>n else None
     return row, records, latest["events"]

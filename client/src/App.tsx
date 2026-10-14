@@ -18,6 +18,7 @@ function App(){
   const [loading,setLoading]=useState(true), [refreshing,setRefreshing]=useState(false);
   const [feed,setFeed]=useState<"github"|"bundled">("bundled");
   const [sessions,setSessions]=useState<string[]>([]), [session,setSession]=useState("latest");
+  const [latestSession,setLatestSession]=useState("");
   const [view,setView]=useState<"board"|"matrix">("board");
   const [page,setPage]=useState<"scanner"|"rules"|"health">("scanner");
   const [scan,setScan]=useState<string>("all"), [search,setSearch]=useState("");
@@ -49,7 +50,7 @@ function App(){
         loaded=await response.json();setFeed("bundled");
       }catch(err:any){setError(err.message||"Unable to load daily snapshot");}
     }
-    if(loaded){setData(loaded);setSelected(null);}
+    if(loaded){setData(loaded);setSelected(null);if(which==="latest")setLatestSession(loaded.last_trading_date);}
     setLoading(false);setRefreshing(false);
     if(manual)setMessage(loaded?`Loaded verified session ${loaded.last_trading_date}. This refresh reads published data; it does not start the GitHub scan.`:"Could not refresh. Last visible snapshot retained.");
   }
@@ -57,9 +58,12 @@ function App(){
     load();
     fetch(`${RAW}sessions.json?v=${Math.floor(Date.now()/60000)}`).then(r=>r.ok?r.json():Promise.reject()).then(setSessions)
       .catch(()=>fetch("./data/sessions.json").then(r=>r.json()).then(setSessions).catch(()=>{}));
-    const timer=setInterval(()=>{load("latest",true)},5*60*1000);
-    return()=>clearInterval(timer);
   },[]);
+  useEffect(()=>{
+    if(session!=="latest")return;
+    const timer=setInterval(()=>load("latest",true),5*60*1000);
+    return()=>clearInterval(timer);
+  },[session]);
   useEffect(()=>{
     if(!message)return;const timer=setTimeout(()=>setMessage(""),7000);return()=>clearTimeout(timer);
   },[message]);
@@ -87,9 +91,19 @@ function App(){
       finally{if(!cancelled)setChartLoading(false)}
     }
     readChart();
-    const onKey=(e:KeyboardEvent)=>{if(e.key==="Escape")setSelected(null)};
+    const previousOverflow=document.body.style.overflow;
+    document.body.style.overflow="hidden";
+    const onKey=(e:KeyboardEvent)=>{
+      if(e.key==="Escape")setSelected(null);
+      if(e.key==="Tab"){
+        const controls=Array.from(document.querySelectorAll<HTMLElement>('.stock-modal button:not([disabled]), .stock-modal a[href], .stock-modal summary, .stock-modal select, .stock-modal input')).filter(el=>el.offsetParent!==null);
+        const first=controls[0],last=controls[controls.length-1];
+        if(e.shiftKey&&document.activeElement===first){e.preventDefault();last?.focus()}
+        else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first?.focus()}
+      }
+    };
     document.addEventListener("keydown",onKey);
-    return()=>{cancelled=true;document.removeEventListener("keydown",onKey)};
+    return()=>{cancelled=true;document.removeEventListener("keydown",onKey);document.body.style.overflow=previousOverflow};
   },[selected]);
   const rows=useMemo(()=>{
     if(!data)return[];
@@ -181,7 +195,7 @@ function App(){
               <div className="metric-featured"><span><Layers3 size={13}/>MULTI-SCAN CONFLUENCE</span><strong>{multi}<small>stocks</small></strong><p>Present in {minimum}+ distinct scans</p></div>
               <div><span>MARKET CONTEXT</span><strong className="regime">{data.market_regime}<span className={`regime-dot ${data.market_regime==="Constructive"?"positive":""}`}/></strong><p>Nifty MidSmallcap 400 / SMA50</p></div>
             </section>
-            <div className="section-heading"><div><h2>{scan==="all"?"The guru board":scan==="multi"?"Multi-scan overlap":data.scans.find(s=>s.id===scan)?.name}</h2><span>Independent ideas. Shared conviction.</span></div><div className="session-control"><span>SESSION</span><select aria-label="Session date" value={session} onChange={e=>{setSession(e.target.value);load(e.target.value)}}><option value="latest">{data.last_trading_date} · Latest</option>{sessions.filter(s=>s!==data.last_trading_date).map(s=><option key={s}>{s}</option>)}</select><button className="icon-button" aria-label="Refresh published snapshot" onClick={()=>load(session,true)}><RefreshCw size={15} className={refreshing?"spin":""}/></button></div></div>
+            <div className="section-heading"><div><h2>{scan==="all"?"The guru board":scan==="multi"?"Multi-scan overlap":data.scans.find(s=>s.id===scan)?.name}</h2><span>Independent ideas. Shared conviction.</span></div><div className="session-control"><span>SESSION</span><select aria-label="Session date" value={session} onChange={e=>{setSession(e.target.value);load(e.target.value)}}><option value="latest">{latestSession||data.last_trading_date} · Latest</option>{sessions.filter(s=>s!==latestSession).map(s=><option key={s}>{s}</option>)}</select><button className="icon-button" aria-label="Refresh published snapshot" onClick={()=>load(session,true)}><RefreshCw size={15} className={refreshing?"spin":""}/></button></div></div>
             <div className="toolbar"><div className="search-field"><Search size={16}/><input aria-label="Search symbols or companies" placeholder="Search symbol or company..." value={search} onChange={e=>setSearch(e.target.value)}/>{search&&<button aria-label="Clear search" className="icon-button" onClick={()=>setSearch("")}><X size={14}/></button>}</div>
               <label className={`filter-toggle ${onlyMulti?"enabled":""}`}><input type="checkbox" checked={onlyMulti} onChange={e=>setOnlyMulti(e.target.checked)}/><Layers3 size={15}/>Multi-scan only</label>
               <select className="select-small" aria-label="Minimum overlap" value={minimum} onChange={e=>setMinimum(+e.target.value)}>{[2,3,4,5].map(n=><option key={n} value={n}>{n}+ scans</option>)}</select>

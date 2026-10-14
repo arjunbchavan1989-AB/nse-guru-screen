@@ -35,6 +35,8 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: main
       - uses: actions/setup-python@v6
         with:
           python-version: '3.11'
@@ -75,6 +77,8 @@ jobs:
           git add client/public/data snapshots pipeline/benchmark_midsmall400.csv
           if ! git diff --cached --quiet; then
             git commit -m "Update validated Guru EOD snapshot [skip ci]"
+            git fetch origin main
+            git rebase origin/main
             git push
           fi
       - name: Build client
@@ -96,4 +100,12 @@ jobs:
         with:
           name: guru-scan-log
           path: /tmp/guru-scan.log
+          if-no-files-found: ignore
+      - name: Preserve own failed-run market cache for diagnosis
+        if: failure()
+        uses: actions/upload-artifact@v5
+        with:
+          name: guru-own-failed-market-cache
+          path: pipeline/cache
+          retention-days: 3
           if-no-files-found: ignore

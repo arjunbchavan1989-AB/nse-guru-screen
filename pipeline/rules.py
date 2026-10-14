@@ -185,7 +185,7 @@ def technical(frame, parent):
                fundamental_status="Unknown", fundamentals_date=None,
                eps_growth=None, sales_growth=None, warnings=ep["warnings"],
                spark=[safe(v,2) for v in d.close.tail(45)], gates={},
-               _stack=bool(stack), _position20=safe(position20), _high252=safe(high252),
+               _stack=bool(stack) if len(d)>=200 else None, _position20=safe(position20), _high252=safe(high252),
                _above50=bool(len(d)>=50 and last.close>=mas[50].iloc[-1]),
                _launch_trend=bool(len(d)>=53 and last.close>e20.iloc[-1] and e10.iloc[-1]>=e20.iloc[-1]
                                  and e20.iloc[-1]>e20.iloc[-4] and last.close>=mas[50].iloc[-1]),

@@ -70,7 +70,12 @@ def histories(symbols,session):
         for offset in range(0,len(missing),80):
             batch=missing[offset:offset+80]
             try:
-                data=yf.download([s+".NS" for s in batch],period="15mo",interval="1d",auto_adjust=False,
+                # Anchor to the exchange-verified session instead of a provider-relative
+                # custom period, which can resolve to a stale cached history window.
+                data=yf.download([s+".NS" for s in batch],
+                                 start=(session-pd.Timedelta(days=550)).strftime("%Y-%m-%d"),
+                                 end=(session+pd.Timedelta(days=1)).strftime("%Y-%m-%d"),
+                                 interval="1d",auto_adjust=False,
                                  group_by="ticker",threads=4,progress=False,timeout=20)
             except Exception as exc:
                 LOG.warning("Quote batch unavailable: %s",exc);failed.extend(batch);continue
@@ -128,7 +133,14 @@ def build():
     session=exchange_session(completed_date());frames,missing_prices=histories(symbols,session)
     if not frames or len(frames)/len(symbols)<.95:raise RuntimeError("Provider histories cover under 95% of official listings; refusing publication")
     current={s:f for s,f in frames.items() if f.index[-1]==session}
-    if len(current)/len(frames)<.95:raise RuntimeError("Own same-session history coverage below 95%")
+    distribution={}
+    for frame in frames.values():
+        day=str(frame.index[-1].date())
+        distribution[day]=distribution.get(day,0)+1
+    LOG.info("Latest-session distribution: %s; target=%s; current=%s/%s",
+             distribution,str(session.date()),len(current),len(frames))
+    if len(current)/len(frames)<.95:
+        raise RuntimeError(f"Own same-session history coverage below 95%: {len(current)}/{len(frames)}; target {session.date()}; dates {distribution}")
     metrics={s:liquidity(f) for s,f in current.items()};liquid=[s for s,(_,ok) in metrics.items() if ok]
     counts,missing_shares=shares(liquid);rows=[];eligible={}
     for symbol in liquid:

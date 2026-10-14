@@ -86,3 +86,5 @@ npx vite build
 ```
 
 The app reads the repository's latest validated snapshot with a minute-level cache-busting key and falls back to its bundled dated snapshot if the repository feed is unavailable. Refresh reads published data; it does not trigger an authenticated workflow. No account credentials, brokerage access, trading endpoints, cookies or browser local storage are required.
+
+TradingView copying normalises NSE punctuation to TradingView IDs, for example `BAJAJ-AUTO` becomes `NSE:BAJAJ_AUTO`, while the dashboard retains the actual exchange symbol. The canonical instrument is documented at https://www.tradingview.com/symbols/NSE-BAJAJ_AUTO/.

@@ -9,6 +9,7 @@ from zoneinfo import ZoneInfo
 import numpy as np
 import pandas as pd
 import yfinance as yf
+from nse_eod import acquire as official_closes, overlay
 
 HERE=Path(__file__).resolve().parent
 CACHE=HERE/"cache";CACHE.mkdir(exist_ok=True)
@@ -57,11 +58,14 @@ def clean(frame,session):
     frame=frame[~frame.index.duplicated(keep="last")].sort_index()
     return frame.loc[(frame.index<=session)&(frame.Volume>0)]
 
-def histories(symbols,session):
+def histories(symbols,session,official=None):
     path=CACHE/"eod_history.pkl";cache=pd.read_pickle(path) if path.exists() else {}
     fresh={};missing=[]
     for symbol in symbols:
         old=clean(cache[symbol],session) if symbol in cache else None
+        if official and old is not None:
+            old=overlay(old,symbol,session,official)
+            cache[symbol]=old
         if old is not None and len(old)>=21 and old.index[-1]==session:fresh[symbol]=old
         else:missing.append(symbol)
     LOG.info("Own EOD histories cached: %s; downloading %s listed stocks",len(fresh),len(missing))
@@ -82,6 +86,8 @@ def histories(symbols,session):
             for symbol in batch:
                 try:
                     frame=clean(data[symbol+".NS"] if isinstance(data.columns,pd.MultiIndex) else data,session)
+                    if official:
+                        frame=overlay(frame,symbol,session,official)
                     if len(frame)>=21:
                         cache[symbol]=frame;fresh[symbol]=frame
                         if frame.index[-1]!=session:failed.append(symbol)
@@ -93,6 +99,7 @@ def histories(symbols,session):
         missing=failed
         if not missing:break
         if attempt==0:time.sleep(10)
+    pd.to_pickle(cache,path)
     return fresh,sorted(set(symbols)-set(fresh))
 
 def liquidity(frame):
@@ -130,9 +137,11 @@ def shares(symbols):
 
 def build():
     members,listing_status=listing();symbols=members.SYMBOL.tolist()
-    session=exchange_session(completed_date());frames,missing_prices=histories(symbols,session)
+    session=exchange_session(completed_date())
+    official=official_closes(session)
+    frames,missing_prices=histories(symbols,session,official)
     if not frames or len(frames)/len(symbols)<.95:raise RuntimeError("Provider histories cover under 95% of official listings; refusing publication")
-    current={s:f for s,f in frames.items() if f.index[-1]==session}
+    current={s:f for s,f in frames.items() if f.index[-1]==session and s in official[session].index}
     distribution={}
     for frame in frames.values():
         day=str(frame.index[-1].date())
@@ -157,7 +166,9 @@ def build():
             "same_session_count":len(current),"same_session_coverage_pct":round(len(current)/len(frames)*100,2),
             "liquidity_passed":len(liquid),"qualified_count":len(rows),"shares_coverage_pct":round(len(counts)/len(liquid)*100,2),
             "missing_price_symbols":missing_prices,"stale_price_symbols":sorted(set(frames)-set(current)),
-            "missing_shares_symbols":missing_shares,"equity_prices":"Yahoo Finance via yfinance",
+            "missing_shares_symbols":missing_shares,"equity_prices":"Official NSE EOD closing bars; Yahoo Finance historical backfill",
+            "official_eod_symbol_count":len(official[session]),
+            "official_eod_url":f"https://archives.nseindia.com/products/content/sec_bhavdata_full_{session:%d%m%Y}.csv",
             "market_cap":"Own daily Yahoo shares outstanding × own raw EOD close","session_validation":"Dated NSE index-close archive"}
     payload={"generated_at":now.isoformat(),"refresh_batch":batch.isoformat(),"last_trading_date":str(session.date()),
              "filters":FILTERS,"coverage_pct":100.0,"rows":rows,"market_data":health,

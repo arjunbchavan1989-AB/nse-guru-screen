@@ -48,13 +48,20 @@ The scheduled workflow independently acquires:
 
 - Official EQ listing: https://archives.nseindia.com/content/equities/EQUITY_L.csv
 - Dated NSE index archives: `https://archives.nseindia.com/content/indices/ind_close_all_DDMMYYYY.csv`
-- Equity OHLCV, shares and financial statements: Yahoo Finance through yfinance.
+- Latest completed-session OHLCV: official NSE `sec_bhavdata_full_DDMMYYYY.csv`, with the official UDiFF bhavcopy ZIP as an alternate format.
+- Historical backfill, shares and financial statements: Yahoo Finance through yfinance.
+
+NSE is authoritative for the latest closing bar. This avoids publishing the previous
+session when the historical vendor has not yet updated. Every official file is checked
+against its requested date and EQ-series schema. Missing recent sessions are appended
+only when the known exchange-session calendar is covered; unverified gaps require a
+historical backfill instead. Split-like reference-price reconciliations are logged.
 
 No production code reads the retired NSE Stage dashboard, the Kell dashboard or the EP dashboard. Code modules were adapted into this repository, not connected as data dependencies.
 
 A one-time local `--bootstrap` import can create an explicitly labelled BYOD preview from existing chart files. It is never used by the GitHub workflow. The frontend rejects a remote bootstrap as a current independent feed and exposes fallback mode visibly. The first successful independent acquisition replaces this initial snapshot.
 
-Prices are vendor OHLCV. Corporate actions, extraordinary volumes and circuits require review. Market cap is current shares × raw close, not a historical point-in-time valuation. Financial statement dates are fiscal period ends rather than original filing timestamps. This is not a backtest engine.
+Prices combine vendor historical backfill with official NSE closing bars. Corporate actions, extraordinary volumes and circuits require review. Market cap is current shares × raw close, not a historical point-in-time valuation. Financial statement dates are fiscal period ends rather than original filing timestamps. This is not a backtest engine.
 
 ## Freshness and missing data
 

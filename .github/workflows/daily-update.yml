@@ -3,6 +3,8 @@ on:
   schedule:
     # 19:30 Asia/Kolkata every day; GitHub may delay scheduled jobs.
     - cron: '0 14 * * *'
+    - cron: '15 14 * * *' # 19:45 IST guarded fallback
+    - cron: '30 14 * * *' # 20:00 IST guarded fallback
   workflow_dispatch:
     inputs:
       refresh_data:
@@ -61,15 +63,18 @@ jobs:
           python -m unittest discover -s tests -v
           npx tsx tests/tradingview.ts
           npm run check
+      - name: Check own completed-session freshness
+        id: freshness
+        run: python pipeline/refresh_guard.py --snapshot client/public/data/latest.json --event "${{ github.event_name }}" --refresh-data "${{ inputs.refresh_data }}"
       - name: Independently acquire NSE universe and completed EOD prices
-        if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.refresh_data)
+        if: steps.freshness.outputs.refresh == 'true'
         shell: bash
         run: |
           set -euo pipefail
           python pipeline/run.py 2>&1 | tee /tmp/guru-scan.log
       - name: Save own market and fundamental caches
         uses: actions/cache/save@v5
-        if: always() && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.refresh_data))
+        if: always() && steps.freshness.outputs.refresh == 'true'
         with:
           path: pipeline/cache
           key: guru-own-market-${{ runner.os }}-${{ github.run_id }}
